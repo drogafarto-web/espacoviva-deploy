@@ -1,0 +1,4 @@
+LIBRESPOT_NAME=Academia
+LIBRESPOT_BITRATE=320
+LIBRESPOT_BACKEND=alsa
+LIBRESPOT_OPTS=--device plughw:0,0 --autoplay on --enable-volume-normalisation --initial-volume 80

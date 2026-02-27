@@ -1,0 +1,19 @@
+[Unit]
+Description=YouTube Music Web Backend (espacoviva)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bruno
+Group=bruno
+WorkingDirectory=/home/bruno/espacoviva-deploy
+ExecStart=/usr/bin/python3 /home/bruno/espacoviva-deploy/ytmusic-web.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ytmusic-web
+
+[Install]
+WantedBy=multi-user.target
