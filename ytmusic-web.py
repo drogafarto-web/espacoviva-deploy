@@ -269,7 +269,6 @@ body {
 
 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
 
-/* Dashboard Header */
 header {
   display: flex;
   justify-content: space-between;
@@ -283,7 +282,6 @@ header {
 .dot-online { background: var(--success); box-shadow: 0 0 8px var(--success); }
 .dot-offline { background: var(--danger); }
 
-/* Section Styles */
 .card {
   background: var(--glass);
   backdrop-filter: blur(12px);
@@ -296,7 +294,6 @@ header {
 
 .card-title { font-size: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px; display: flex; justify-content: space-between; }
 
-/* Search Area */
 .search-box { position: relative; margin-bottom: 15px; }
 input {
   width: 100%;
@@ -436,6 +433,18 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-gl
 .volume-slider { flex: 1; -webkit-appearance: none; height: 4px; background: var(--glass-border); border-radius: 2px; outline: none; }
 .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
 
+/* Auth Overlay Rendering Header Only */
+.auth-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.auth-card { width: 100%; max-width: 320px; text-align: center; }
+.auth-input { width: 100%; text-align: center; font-size: 20px; letter-spacing: 4px; margin-bottom: 20px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; color: #fff; outline:none; }
+
 /* Animations */
 @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 .is-loading { animation: pulse 1s infinite; pointer-events: none; opacity: 0.7; }
@@ -461,65 +470,62 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-gl
 </style>
 </head>
 <body>
+
+<div id="auth" class="auth-overlay">
+  <div class="auth-card">
+    <div class="brand"><h1>Academia Espaço viva</h1></div>
+    <p style="margin-bottom: 20px; opacity: 0.7;">Controle de Música</p>
+    <input type="password" id="pass" class="auth-input" placeholder="SENHA" onkeydown="if(event.key==='Enter') login()">
+    <button class="btn btn-primary" style="width: 100%;" onclick="login()">ENTRAR</button>
+  </div>
+</div>
+
 <div class="container">
   <header>
     <div class="brand"><h1>Academia Espaço viva Infinite</h1></div>
     <div class="sys-info">
       <div class="status-pill"><div class="dot" id="dotNet"></div> <span id="netText">---</span></div>
-      <div class="status-pill">Fonte: <span id="srcText">YT Music</span></div>
       <div class="status-pill">CPU <span id="cpuText">0%</span></div>
     </div>
   </header>
 
   <div class="card">
-    <div class="card-title">Busca Inteligente <span class="inf-mode">Auto-Refill <div class="toggle" id="infToggle" onclick="api('/infinite').then(refresh)"></div></span></div>
+    <div class="card-title">Busca Inteligente <span class="inf-mode" onclick="api('/infinite').then(refresh)">Auto-Refill</span></div>
     <div class="search-box">
-      <input type="text" id="inp" placeholder="Nome da música, artista ou link..." onkeydown="if(event.key==='Enter') add('track')">
-      <button class="search-btn" onclick="add('track')">🔍 BUSCAR</button>
+      <input type="text" id="inp" placeholder="O que vamos ouvir hoje?" onkeydown="if(event.key==='Enter') add('track')">
+      <button class="search-btn" onclick="add('track')">🔍</button>
     </div>
     <div class="action-btns">
       <button class="btn btn-primary" onclick="add('playlist')">📂 Playlists</button>
       <button class="btn btn-secondary" id="clearBtnMain" onclick="confirmClear(this)">🗑️ Limpar</button>
     </div>
-    
     <div class="chips-grid">
-      <div class="chip" onclick="quick('gym workout motivation mix')">💪 Treino Brutal</div>
-      <div class="chip" onclick="quick('bodybuilding hardcore training music')">🦍 Bodybuilding</div>
-      <div class="chip" onclick="quick('rock nacional brasileiro anos 80 90')">🎸 Rock BR</div>
-      <div class="chip" onclick="quick('classic rock hits 70s 80s 90s')">🔥 Classic Rock</div>
-      <div class="chip" onclick="quick('pop 2025 hits global')">🎵 Pop 2025</div>
-      <div class="chip" onclick="quick('heavy metal classic mixes')">🎸 Heavy Metal</div>
-      <div class="chip" onclick="quick('pagode romântico 2025')">💃 Pagode</div>
-      <div class="chip" onclick="quick('sertanejo universitário top mix')">🎶 Sertanejo</div>
-      <div class="chip" onclick="quick('jazz classics smooth bebop')">🎷 Jazz</div>
-      <div class="chip" onclick="quick('roots reggae bob marley style')">🌿 Reggae</div>
-      <div class="chip" onclick="quick('bossa nova vinicius jobim')">🇧🇷 Bossa Nova</div>
-      <div class="chip" onclick="quick('trap br hits 2025')">🔥 Trap BR</div>
-      <div class="chip" onclick="quick('funk phonk tiktok workout phonk')">⚡ Funk Phonk</div>
-      <div class="chip" onclick="quick('dance edm tomorrowland festival')">🕺 Dance/EDM</div>
-      <div class="chip" onclick="quick('forró piseiro xote mix')">🌽 Forró</div>
-      <div class="chip" onclick="quick('gospel louvor e adoração')">⛪ Gospel</div>
-      <div class="chip" onclick="quick('lofi hip hop study beats')">☕ Lo-fi</div>
-      <div class="chip" onclick="quick('classical mozart beethoven')">🎼 Classical</div>
-      <div class="chip" onclick="quick('90s hip hop old school')">🎤 Hip Hop</div>
+        <div class="chip" onclick="quick('🔥 Cross Brutal (Hardstyle)')">🔥 Cross Brutal</div>
+        <div class="chip" onclick="quick('⚡ Cardio Techno')">⚡ Cardio Techno</div>
+        <div class="chip" onclick="quick('💣 PR Day Mix')">💣 PR Day</div>
+        <div class="chip" onclick="quick('🇧🇷 Brasil Workout Remix')">🇧🇷 Brasil Remix</div>
+        <div class="chip" onclick="quick('🎧 Pop Internacional Remix')">🎧 Pop Remix</div>
+        <div class="chip" onclick="quick('🥊 Fight Training')">🥊 Fight Training</div>
+        <div class="chip" onclick="quick('rock nacional brasileiro anos 80 90')">🎸 Rock BR</div>
+        <div class="chip" onclick="quick('classic rock hits 70s 80s 90s')">🔥 Classic Rock</div>
     </div>
   </div>
 
   <div class="card" id="qCard" style="display:none">
-    <div class="card-title">Fila de Reprodução <button class="btn btn-secondary" id="clearBtnQueue" style="padding: 4px 10px; font-size: 10px;" onclick="confirmClear(this)">🗑️ LIMPAR FILA</button> <span id="qCount">0 itens</span></div>
+    <div class="card-title">Fila de Reprodução <button class="btn btn-secondary" id="clearBtnQueue" style="padding: 4px 10px; font-size: 9px;" onclick="confirmClear(this)">LIMPAR</button></div>
     <div class="queue-list" id="qList"></div>
   </div>
 </div>
 
 <div class="player-bar">
   <div class="now-playing">
-    <div class="np-title" id="npTitle">Nenhuma música</div>
-    <div class="np-status" id="npStatus">Offline</div>
+    <div class="np-title" id="npTitle">---</div>
+    <div class="np-status" id="npStatus">Desconectado</div>
   </div>
   <div class="player-ctrls">
-    <button class="p-btn" onclick="api('/prev').then(refresh)"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6V6zm3.5 6L18 6v12l-8.5-6z"/></svg></button>
+    <button class="p-btn" onclick="api('/prev').then(refresh)">⏮</button>
     <button class="p-btn p-btn-main" id="playBtn" onclick="api('/toggle').then(refresh)">▶</button>
-    <button class="p-btn" onclick="api('/next').then(refresh)"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18V6l8.5 6L6 18zM16 6h2v12h-2V6z"/></svg></button>
+    <button class="p-btn" onclick="api('/next').then(refresh)">⏭</button>
   </div>
   <div style="display:flex; justify-content:center;">
     <div class="volume-ctrl">
@@ -534,121 +540,103 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-gl
 let lastState = null;
 
 async function api(p, data={}) {
+  const auth = localStorage.getItem('espacoviva_auth');
+  if(!auth) return;
   try {
-    const r = await fetch('/api'+p, { method:'POST', cache:'no-cache', body: JSON.stringify(data) });
+    const r = await fetch('/api'+p, { 
+        method:'POST', 
+        cache:'no-cache', 
+        body: JSON.stringify(data),
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Api-Key': auth
+        }
+    });
+    if(r.status === 401) { logout(); return; }
     return r.json();
   } catch(e) { console.error('API Error', e); }
 }
 
+function login() {
+  const p = document.getElementById('pass').value;
+  if(p === 'espacoviva') {
+    localStorage.setItem('espacoviva_auth', p);
+    document.getElementById('auth').style.display = 'none';
+    refresh();
+  } else {
+    alert('Senha incorreta!');
+    document.getElementById('pass').value = '';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('espacoviva_auth');
+  location.reload();
+}
+
+if(localStorage.getItem('espacoviva_auth') === 'espacoviva') {
+  document.getElementById('auth').style.display = 'none';
+}
+
 async function refresh() {
-  const s = await fetch('/api/state?t=' + Date.now()).then(r=>r.json());
-  const np = document.getElementById('npTitle');
-  const st = document.getElementById('npStatus');
-  const playBtn = document.getElementById('playBtn');
-  
-  if(s.status === 'playing') {
-    np.textContent = s.title || 'Tocando...';
-    st.textContent = '● Tocando Agora';
-    st.style.color = 'var(--success)';
-    playBtn.textContent = '⏸';
-  } else {
-    np.textContent = s.title || 'Pausado';
-    st.textContent = 'Pausado';
-    st.style.color = 'var(--accent)';
-    playBtn.textContent = '▶';
-  }
-
-  // Selective Queue Render
-  const qCard = document.getElementById('qCard');
-  const qList = document.getElementById('qList');
-  
-  const stateChanged = !lastState || 
-                       lastState.queue.length !== s.queue.length || 
-                       lastState.current_idx !== s.current_idx ||
-                       JSON.stringify(lastState.queue[0]) !== JSON.stringify(s.queue[0]);
-
-  if(s.queue.length > 0) {
-    qCard.style.display = 'block';
-    document.getElementById('qCount').textContent = s.queue.length + ' músicas';
+  const auth = localStorage.getItem('espacoviva_auth');
+  if(!auth) return;
+  try {
+    const s = await fetch('/api/state?t=' + Date.now() + '&auth=' + auth).then(r=>r.json());
+    document.getElementById('npTitle').textContent = s.title || (s.status === 'playing' ? 'Tocando...' : 'Pausado');
+    document.getElementById('npStatus').textContent = s.status === 'playing' ? '● AO VIVO' : 'Pausado';
+    document.getElementById('playBtn').textContent = s.status === 'playing' ? '⏸' : '▶';
     
-    if (stateChanged) {
-      qList.innerHTML = s.queue.map((it, i) => `
-        <div class="q-item ${s.current_idx == i ? 'playing' : ''}" onclick="play(${i})">
-          <div class="q-idx">${i+1}</div>
-          <div class="q-info">
-            <div class="q-title">${it.title}</div>
-            <div class="q-meta">${it.duration || '00:00'}</div>
-          </div>
-          <div class="q-remove" onclick="event.stopPropagation(); remove(${i})">×</div>
-        </div>
-      `).join('');
-      
-      // Auto-scroll to playing
-      if(s.current_idx >= 0) {
-        const activeItem = qList.children[s.current_idx];
-        if(activeItem && stateChanged) activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+    const qList = document.getElementById('qList');
+    if(s.queue.length > 0) {
+        document.getElementById('qCard').style.display = 'block';
+        qList.innerHTML = s.queue.slice(0, 50).map((it, i) => `
+            <div class="q-item ${s.current_idx == i ? 'playing' : ''}" onclick="play(${i})">
+                <div class="q-idx">${i+1}</div>
+                <div class="q-info">
+                    <div class="q-title">${it.title}</div>
+                    <div class="q-meta">${it.duration || '00:00'}</div>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('qCard').style.display = 'none';
     }
-  } else {
-    qCard.style.display = 'none';
+    document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
+    document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Offline';
+    document.getElementById('cpuText').textContent = s.sys.cpu + '%';
+  } catch(e) { 
+      document.getElementById('npStatus').textContent = "Offline ⚠️";
   }
-
-  document.getElementById('infToggle').className = 'toggle ' + (s.infinite_mode ? 'active' : '');
-  
-  // Sys Info
-  document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
-  document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Erro Link';
-  document.getElementById('srcText').textContent = s.sys.source || 'YT Music';
-  document.getElementById('cpuText').textContent = s.sys.cpu + (typeof s.sys.cpu === 'string' ? '' : '%');
-  
-  if(!document.querySelector('.volume-slider:active')) {
-    document.getElementById('vol').value = s.volume || 80;
-  }
-  
-  lastState = s;
 }
 
 async function add(mode) {
   const v = document.getElementById('inp').value;
   if(!v) return;
-  document.getElementById('inp').classList.add('is-loading');
-  await api('/add', { q: v, mode: mode, clear: false });
+  await api('/add', { q: v, mode: mode });
   document.getElementById('inp').value = '';
-  document.getElementById('inp').classList.remove('is-loading');
-  refresh();
+  setTimeout(refresh, 2000);
 }
 
-function quick(q) {
-  document.getElementById('inp').value = q;
-  add('playlist');
-}
+function quick(q) { document.getElementById('inp').value = q; add('playlist'); }
+function play(idx) { api('/play', {i: idx}).then(refresh); }
+function setVol(v) { api('/volume', {v: v}); }
 
 function confirmClear(btn) {
   if (btn.dataset.conf === "1") {
-    btn.textContent = "⌛ AGUARDE...";
     api('/clear').then(() => {
       btn.dataset.conf = "0";
-      btn.textContent = btn.id === "clearBtnQueue" ? "🗑️ LIMPAR FILA" : "🗑️ Limpar";
-      document.getElementById('qCard').style.display = 'none';
+      btn.textContent = btn.id === "clearBtnQueue" ? "LIMPAR" : "🗑️ Limpar";
       refresh();
     });
   } else {
     btn.dataset.conf = "1";
-    const oldText = btn.textContent;
     btn.textContent = "CONFIRMAR?";
-    btn.style.borderColor = "var(--danger)";
-    setTimeout(() => {
-      btn.dataset.conf = "0";
-      btn.textContent = oldText;
-      btn.style.borderColor = "";
-    }, 3000);
+    setTimeout(() => { btn.dataset.conf = "0"; btn.textContent = btn.id === "clearBtnQueue" ? "LIMPAR" : "🗑️ Limpar"; }, 3000);       
   }
 }
-async function remove(idx) { await api('/remove', {i: idx}); refresh(); }
-async function play(idx) { await api('/play', {i: idx}); refresh(); }
-async function setVol(v) { await api('/volume', {v: v}); }
 
-setInterval(refresh, 3000);
+setInterval(refresh, 5000);
 refresh();
 </script>
 </body>
@@ -657,21 +645,46 @@ refresh();
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer): pass
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args): pass
+    def check_auth(self):
+        # Permitir index e assets sem senha
+        if self.path == "/" or "/index.html" in self.path: return True
+        # Check API Key
+        key = self.headers.get("X-Api-Key")
+        if not key:
+            # Fallback for state via URL param (used in simple fetch)
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            key = params.get("auth", [None])[0]
+        
+        if key == "espacoviva": return True
+        self._unauthorized()
+        return False
+
+    def _unauthorized(self):
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps({"error": "unauthorized"}).encode())
+
     def _json(self, data):
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Api-Key")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Api-Key")
         self.end_headers()
+
     def do_GET(self):
+        if not self.check_auth(): return
         if self.path == "/" or "/index.html" in self.path: 
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -682,18 +695,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             st = "playing" if p is False else "stopped"
             state["title"] = t or state["title"]; state["status"] = st
             self._json({ **state, "sys": get_sys_info() })
+
     def do_POST(self):
+        if not self.check_auth(): return
         try:
             cl = int(self.headers.get('Content-Length', 0)); data = json.loads(self.rfile.read(cl)) if cl else {}
             log(f"API RECEBIDA: {self.path} - DATA: {data}")
             if self.path == "/api/add":
                 q = data.get("q")
-                if data.get("clear"): 
-                    with lock: stop_playback(); state["queue"] = []; state["current_idx"] = -1; state["last_query"] = q
                 items = get_yt_info(q, is_playlist_search=("playlist" in data.get("mode", "")))
                 with lock: 
                     state["queue"].extend(items); save_state()
-                    if data.get("clear") and len(state["queue"]) > 0: play_item(0)
                 self._json({"ok": True, "count": len(items)})
             elif self.path == "/api/clear":
                 with lock: stop_playback(); state["queue"] = []; state["current_idx"] = -1; save_state()
@@ -740,16 +752,9 @@ if state["queue"] and state["current_idx"] >= 0:
         time.sleep(5)
         play_item(state["current_idx"])
     threading.Thread(target=auto_play, daemon=True).start()
-elif state["queue"]:
-    log("Auto-resume: iniciando da primeira música em 5 segundos...")
-    def auto_play():
-        time.sleep(5)
-        play_item(0)
-    threading.Thread(target=auto_play, daemon=True).start()
 else:
     log("Auto-resume: fila vazia, nada para tocar.")
 
 threading.Thread(target=monitor_thread, daemon=True).start()
-log(f"Academia Infinite v3.2 iniciada na porta {PORT}")
+log(f"Academia Infinite Premium v4.0 iniciada na porta {PORT}")
 ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
-
