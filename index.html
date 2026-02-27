@@ -275,13 +275,6 @@
       margin-top: 2px;
     }
 
-    .q-remove {
-      color: var(--danger);
-      padding: 8px;
-      font-size: 18px;
-      opacity: 0.6;
-    }
-
     .player-bar {
       position: fixed;
       bottom: 0;
@@ -374,6 +367,7 @@
       font-size: 14px;
       opacity: 0.3;
       cursor: pointer;
+      z-index: 1001;
     }
 
     .config-panel {
@@ -417,6 +411,11 @@
       letter-spacing: 4px;
       margin-bottom: 20px;
       background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 10px;
+      color: #fff;
+      outline: none;
     }
 
     @media (max-width: 480px) {
@@ -453,8 +452,8 @@
   <div class="config-panel" id="cfg">
     <h3>Configuração do Servidor</h3>
     <input type="text" id="api_url" placeholder="URL do Tunnel (ex: academia.trycloudflare.com)"
-      style="margin: 10px 0;">
-    <button class="btn btn-primary" onclick="saveConfig()">Salvar</button>
+      style="margin: 10px 0; width: 100%;">
+    <button class="btn btn-primary" style="width: 100%;" onclick="saveConfig()">Salvar</button>
   </div>
 
   <div class="container">
@@ -602,6 +601,9 @@
         } else {
           document.getElementById('qCard').style.display = 'none';
         }
+        document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
+        document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Offline';
+        document.getElementById('cpuText').textContent = s.sys.cpu + '%';
       } catch (e) {
         document.getElementById('npStatus').textContent = "Offline ⚠️";
       }
