@@ -524,6 +524,27 @@
     let lastState = null;
     let API_BASE = localStorage.getItem('music_server_url') || "";
 
+    function login() {
+      const p = document.getElementById('pass').value;
+      if (p === 'espacoviva') {
+        localStorage.setItem('espacoviva_auth', p);
+        document.getElementById('auth').style.display = 'none';
+        refresh();
+      } else {
+        alert('Senha incorreta!');
+        document.getElementById('pass').value = '';
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('espacoviva_auth');
+      location.reload();
+    }
+
+    if (localStorage.getItem('espacoviva_auth') === 'espacoviva') {
+      document.getElementById('auth').style.display = 'none';
+    }
+
     function toggleConfig() { document.getElementById('cfg').style.display = document.getElementById('cfg').style.display === 'block' ? 'none' : 'block'; }
     function saveConfig() {
       let url = document.getElementById('api_url').value.trim();
@@ -544,19 +565,24 @@
           cache: 'no-cache',
           mode: 'cors',
           body: JSON.stringify(data),
-          headers: { 'Content-Type': 'application/json' }
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': auth
+          }
         });
+        if (r.status === 401) { logout(); return; }
         return r.json();
       } catch (e) { console.error('API Error', e); }
     }
 
     async function refresh() {
-      if (!API_BASE) {
-        document.getElementById('npStatus').textContent = "Configure o Tunnel ⚙️";
+      const auth = localStorage.getItem('espacoviva_auth');
+      if (!auth || !API_BASE) {
+        if (!API_BASE) document.getElementById('npStatus').textContent = "Configure o Tunnel ⚙️";
         return;
       }
       try {
-        const s = await fetch(API_BASE + '/api/state?t=' + Date.now(), { mode: 'cors' }).then(r => r.json());
+        const s = await fetch(API_BASE + '/api/state?t=' + Date.now() + '&auth=' + auth, { mode: 'cors' }).then(r => r.json());
         document.getElementById('npTitle').textContent = s.title || (s.status === 'playing' ? 'Tocando...' : 'Pausado');
         document.getElementById('npStatus').textContent = s.status === 'playing' ? '● AO VIVO' : 'Pausado';
         document.getElementById('playBtn').textContent = s.status === 'playing' ? '⏸' : '▶';
