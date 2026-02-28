@@ -62,7 +62,10 @@ def load_state():
                 state["volume"] = data.get("volume", 80)
                 state["infinite_mode"] = data.get("infinite_mode", True)
                 state["last_query"] = data.get("last_query", "gym workout mix")
-            log(f"Estado carregado. Fila: {len(state['queue'])}. Inf: {state['infinite_mode']}")
+                # Se carregou com -1 mas tem fila, tratar para auto-resume (v4.1)
+                if state["current_idx"] == -1 and state["queue"]:
+                    state["current_idx"] = 0
+            log(f"Estado carregado (v4.1). Fila: {len(state['queue'])}. Indice: {state['current_idx']}")
         except Exception as e: log(f"ERRO load_state: {e}")
 
 def mpv_command(*args):
@@ -237,7 +240,7 @@ def monitor_thread():
         time.sleep(5)
 
 def get_sys_info():
-    info = {"cpu": 0, "ram": 0, "internet": False, "source": "YT Music"}
+    info = {"cpu": "0", "ram": 0, "internet": False, "source": "YT Music"}
     try:
         # PING rápido
         ping_cmd = ["ping", "-c", "1", "-W", "1", "8.8.8.8"] if sys.platform != "win32" else ["ping", "-n", "1", "-w", "1000", "8.8.8.8"]
@@ -245,28 +248,35 @@ def get_sys_info():
         info["internet"] = (res.returncode == 0)
         
         if sys.platform != "win32":
-            # Check Source via systemctl
-            if subprocess.run(["systemctl", "is-active", "go-librespot"], capture_output=True).returncode == 0:
-                info["source"] = "Spotify"
-            elif subprocess.run(["systemctl", "is-active", "mpd"], capture_output=True).returncode == 0:
-                info["source"] = "MPD Offline"
+            # Status via systemctl
+            info["source"] = "YT Music"
             
-            # Stats
-            with open("/proc/loadavg", "r") as f: info["cpu"] = f.read().split()[0]
-            with open("/proc/meminfo", "r") as f: 
-                m = f.readlines()
-                total = int(m[0].split()[1]); free = int(m[2].split()[1])
-                info["ram"] = round(((total - free) / total) * 100, 1)
-    except: pass
+            # Stats robustas (Fallback Debian/Mac)
+            try:
+                # CPU load average (1 min)
+                with open("/proc/loadavg", "r") as f: 
+                    info["cpu"] = f.read().split()[0]
+                # RAM
+                with open("/proc/meminfo", "r") as f: 
+                    lines = f.readlines()
+                    total = int(lines[0].split()[1])
+                    available = int(lines[2].split()[1])
+                    used = total - available
+                    info["ram"] = round((used / total) * 100, 1)
+            except:
+                # Fallback via top para macOS ou Debian truncado
+                cpu_val = subprocess.check_output("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", shell=True).decode().strip()
+                info["cpu"] = cpu_val if cpu_val else "0.1"
+    except Exception as e: 
+        log(f"AVISO get_sys_info: {e}")
     return info
 
 HTML_V3 = """<!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Academia Espaço viva Infinite | Remote Control</title>
+  <title>Academia Espaço viva Infinite | Remote Control v4.1</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -283,105 +293,83 @@ HTML_V3 = """<!DOCTYPE html>
       --text-dim: rgba(255, 255, 255, 0.5);
       --safe-bottom: env(safe-area-inset-bottom);
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      font-family: 'Outfit', sans-serif;
-      background: var(--bg);
-      background: radial-gradient(circle at 50% -20%, hsl(265, 80%, 15%) 0%, var(--bg) 80%);
-      color: var(--text);
-      min-height: 100vh;
-      padding-bottom: calc(180px + var(--safe-bottom));
-      overflow-x: hidden;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Outfit', sans-serif; background: var(--bg); background: radial-gradient(circle at 50% -20%, hsl(265, 80%, 15%) 0%, var(--bg) 80%); color: var(--text); min-height: 100vh; padding-bottom: calc(180px + var(--safe-bottom)); overflow-x: hidden; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(to right, #fff, var(--text-dim)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .sys-info { display: flex; gap: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-    .status-pill { background: var(--glass); border: 1px solid var(--glass-border); padding: 4px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+    .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(to right, #fff, var(--text-dim)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sys-info { display: flex; gap: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    .status-pill { background: var(--glass); border: 1px solid var(--glass-border); padding: 4px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .dot { width: 8px; height: 8px; border-radius: 50%; position: relative; }
     .dot-online { background: var(--success); box-shadow: 0 0 12px var(--success); }
     .dot-online::after { content: ''; position: absolute; width: 100%; height: 100%; background: inherit; border-radius: 50%; animation: ping 1.5s infinite; }
     .dot-offline { background: var(--danger); box-shadow: 0 0 12px var(--danger); }
     @keyframes ping { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2.5); opacity: 0; } }
 
-    .card { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px; margin-bottom: 20px; }
-    .card-title { font-size: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px; display: flex; justify-content: space-between; }
+    .card { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px; margin-bottom: 20px; transition: transform 0.3s; }
+    .card:hover { border-color: var(--accent-glow); }
+    .card-title { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     .search-box { position: relative; margin-bottom: 15px; }
-    input { width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px; color: #fff; font-size: 15px; outline: none; transition: all 0.3s; }
+    input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px; color: #fff; font-size: 15px; outline: none; transition: 0.3s; }
     input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
-    .search-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: var(--accent); border: none; border-radius: 8px; width: 36px; height: 36px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .btn { border: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s, opacity 0.2s; }
-    .btn:active { transform: scale(0.96); }
-    .btn-primary { background: var(--accent); color: #fff; }
+    .search-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: var(--accent); border: none; border-radius: 10px; width: 40px; height: 40px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+    .btn { border: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 15px var(--accent-glow); }
     .btn-secondary { background: var(--glass); border: 1px solid var(--glass-border); color: #fff; }
-    .chips-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; max-height: 120px; overflow-y: auto; padding-right: 5px; }
-    .chip { background: var(--glass); border: 1px solid var(--glass-border); padding: 8px 14px; border-radius: 50px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-    .chip:hover { background: var(--glass-border); border-color: var(--text-dim); }
-    .queue-list { display: flex; flex-direction: column; gap: 8px; }
-    .q-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255, 255, 255, 0.02); border-radius: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
-    .q-item.playing { background: hsla(265, 89%, 60%, 0.1); border-color: var(--accent-glow); }
-    .q-idx { font-size: 10px; font-weight: 700; color: var(--text-dim); width: 20px; }
-    .q-info { flex: 1; min-width: 0; }
+    .chips-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; max-height: 120px; overflow-y: auto; }
+    .chip { background: var(--glass); border: 1px solid var(--glass-border); padding: 8px 14px; border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+    .chip:active { transform: scale(0.9); }
+    .q-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 12px; margin-bottom:8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+    .q-item.playing { background: hsla(265, 89%, 60%, 0.15); border-color: var(--accent-glow); }
+    .q-idx { font-size: 10px; font-weight: 700; color: var(--text-dim); width: 24px; }
     .q-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .q-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-    .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(7, 9, 18, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-top: 1px solid var(--glass-border); padding: 16px 20px calc(16px + var(--safe-bottom)); z-index: 1000; }
-    .np-title { font-size: 15px; font-weight: 700; text-align: center; margin-bottom: 4px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .np-status { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; text-align: center; color: var(--accent); }
-    .player-ctrls { display: flex; justify-content: center; align-items: center; gap: 24px; }
-    .p-btn-main { width: 60px; height: 60px; background: #fff; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-    .p-btn { background: transparent; border: none; color: #fff; cursor: pointer; }
-    .volume-ctrl { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 200px; margin-top: 15px; }
+
+    .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(7, 9, 18, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); padding: 16px 20px calc(16px + var(--safe-bottom)); z-index: 1000; }
+    .np-title { font-size: 15px; font-weight: 700; text-align: center; color: #fff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .np-status { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; text-align: center; color: var(--accent); margin-bottom: 12px; }
+    .player-ctrls { display: flex; justify-content: center; align-items: center; gap: 32px; }
+    .p-btn-main { width: 56px; height: 56px; background: #fff; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 20px rgba(255,255,255,0.3); }
+    .volume-ctrl { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 250px; margin: 15px auto 0; }
     .volume-slider { flex: 1; -webkit-appearance: none; height: 4px; background: var(--glass-border); border-radius: 2px; outline: none; }
-    .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #fff; border-radius: 50%; }
-    .config-btn { position: fixed; top: 10px; right: 10px; font-size: 14px; opacity: 0.3; cursor: pointer; z-index: 1001; }
-    .config-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1b1e; padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); display: none; z-index: 2000; }
+    .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #fff; border-radius: 50%; cursor: pointer; }
+
+    #logview { background: #000; color: #0f0; font-family: monospace; font-size: 9px; padding: 10px; border-radius: 8px; max-height: 80px; overflow-y: auto; margin-top: 20px; border: 1px solid #111; opacity: 0.6; }
     .auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .auth-card { width: 100%; max-width: 320px; text-align: center; }
-    .auth-input { width: 100%; text-align: center; font-size: 20px; letter-spacing: 4px; margin-bottom: 20px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; color: #fff; outline: none; }
-    @media (max-width: 480px) { .container { padding: 12px; } .brand h1 { font-size: 18px; } .action-btns { grid-template-columns: 1fr; } }
+    .auth-input { width: 100%; text-align: center; font-size: 20px; letter-spacing: 4px; margin-bottom: 20px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px; color: #fff; outline:none; }
   </style>
 </head>
-
 <body>
-  <div id="auth" class="auth-overlay">
-    <div class="auth-card">
-      <div class="brand"><h1>Academia Espaço viva</h1></div>
-      <p style="margin-bottom: 20px; opacity: 0.7;">Controle de Música</p>
-      <input type="password" id="pass" class="auth-input" placeholder="SENHA" onkeydown="if(event.key==='Enter') login()">
-      <button class="btn btn-primary" style="width: 100%;" onclick="login()">ENTRAR</button>
+<div id="auth" class="auth-overlay">
+  <div class="auth-card">
+    <div class="brand"><h1>Academia Espaço viva</h1></div>
+    <p style="margin-bottom: 24px; opacity: 0.6; font-size: 14px;">Forever Music Server v4.1</p>
+    <input type="password" id="pass" class="auth-input" placeholder="••••" onkeydown="if(event.key==='Enter') login()">
+    <button class="btn btn-primary" style="width: 100%;" onclick="login()">ENTRAR NO PAINEL</button>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="brand"><h1>Espaço viva Infinite</h1></div>
+    <div class="sys-info">
+      <div class="status-pill" title="Network"><div class="dot" id="dotNet"></div> <span id="netText">---</span></div>
+      <div class="status-pill" title="Hardware load">CPU <span id="cpuText">---</span></div>
+      <div class="status-pill" title="Service">🛡️ <span id="statusSource">CHECK</span></div>
     </div>
-  </div>
+  </header>
 
-  <div class="config-btn" onclick="toggleConfig()">⚙️</div>
-  <div class="config-panel" id="cfg">
-    <h3>Configuração do Servidor</h3>
-    <input type="text" id="api_url" placeholder="URL do Tunnel (ex: academia.trycloudflare.com)" style="margin: 10px 0; width: 100%;">
-    <button class="btn btn-primary" style="width: 100%;" onclick="saveConfig()">Salvar</button>
-  </div>
-
-  <div class="container">
-    <header>
-      <div class="brand"><h1>Academia Espaço viva Infinite</h1></div>
-      <div class="sys-info">
-        <div class="status-pill" title="Health Check"><div class="dot" id="dotNet"></div> <span id="netText">---</span></div>
-        <div class="status-pill" title="CPU Load">CPU <span id="cpuText">0%</span></div>
-        <div class="status-pill" title="Active Source">🛡️ <span id="statusSource">YT Music</span></div>
-      </div>
-    </header>
-
-    <div class="card">
-      <div class="card-title">Busca Inteligente <span class="inf-mode" onclick="api('/infinite').then(refresh)">Auto-Refill</span></div>
-      <div class="search-box">
-        <input type="text" id="inp" placeholder="O que vamos ouvir hoje?" onkeydown="if(event.key==='Enter') add('track')">
-        <button class="search-btn" onclick="add('track')">🔍</button>
-      </div>
-      <div class="action-btns">
-        <button class="btn btn-primary" onclick="add('playlist')">📂 Playlists</button>
-        <button class="btn btn-secondary" id="clearBtnMain" onclick="confirmClear(this)">🗑️ Limpar</button>
-      </div>
-      <div class="chips-grid">
+  <div class="card">
+    <div class="card-title">BUSCA INTELIGENTE <span id="infBadge" onclick="api('/infinite').then(refresh)" style="color:var(--success); cursor:pointer;">AUTO-REFILL ON</span></div>
+    <div class="search-box">
+      <input type="text" id="inp" placeholder="Playlist ou música..." onkeydown="if(event.key==='Enter') add('track')">
+      <button class="search-btn" onclick="add('track')">🔍</button>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+      <button class="btn btn-primary" onclick="add('playlist')">📂 Playlists</button>
+      <button class="btn btn-secondary" onclick="confirmClear(this)">🗑️ Limpar Tudo</button>
+    </div>
+    <div class="chips-grid">
         <div class="chip" onclick="quick('🔥 Cross Brutal (Hardstyle)')">🔥 Cross Brutal</div>
         <div class="chip" onclick="quick('⚡ Cardio Techno')">⚡ Cardio Techno</div>
         <div class="chip" onclick="quick('💣 PR Day Mix')">💣 PR Day</div>
@@ -389,86 +377,94 @@ HTML_V3 = """<!DOCTYPE html>
         <div class="chip" onclick="quick('🎧 Pop Internacional Remix')">🎧 Pop Remix</div>
         <div class="chip" onclick="quick('🥊 Fight Training')">🥊 Fight Training</div>
         <div class="chip" onclick="quick('rock nacional brasileiro anos 80 90')">🎸 Rock BR</div>
-        <div class="chip" onclick="quick('classic rock hits 70s 80s 90s')">🔥 Classic Rock</div>
-      </div>
-    </div>
-
-    <div class="card" id="qCard" style="display:none">
-      <div class="card-title">Fila de Reprodução <button class="btn btn-secondary" id="clearBtnQueue" style="padding: 4px 10px; font-size: 9px;" onclick="confirmClear(this)">LIMPAR</button></div>
-      <div class="queue-list" id="qList"></div>
     </div>
   </div>
 
-  <div class="player-bar">
-    <div class="now-playing">
-      <div class="np-title" id="npTitle">---</div>
-      <div class="np-status" id="npStatus">Desconectado</div>
-    </div>
-    <div class="player-ctrls">
-      <button class="p-btn" onclick="api('/prev').then(refresh)">⏮</button>
-      <button class="p-btn p-btn-main" id="playBtn" onclick="api('/toggle').then(refresh)">▶</button>
-      <button class="p-btn" onclick="api('/next').then(refresh)">⏭</button>
-    </div>
-    <div style="display:flex; justify-content:center;">
-      <div class="volume-ctrl">
-        <span>🔈</span>
-        <input type="range" class="volume-slider" id="vol" min="0" max="100" oninput="setVol(this.value)">
-        <span>🔊</span>
-      </div>
-    </div>
+  <div class="card" id="qCard" style="display:none">
+    <div class="card-title">FILA DE REPRODUÇÃO</div>
+    <div id="qList"></div>
   </div>
 
-  <script>
-    let API_BASE = localStorage.getItem('music_server_url') || "";
-    async function api(p, data = {}) {
-      const auth = localStorage.getItem('espacoviva_auth');
-      if (!auth) return;
-      try {
-        const url = (p.startsWith('/') && API_BASE) ? API_BASE + '/api' + p : (p.startsWith('/api') ? p : '/api' + p);
-        const r = await fetch(url, { method: 'POST', cache: 'no-cache', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json', 'X-Api-Key': auth } });
-        if (r.status === 401) { logout(); return; }
-        return r.json();
-      } catch (e) { console.error('API Error', e); }
-    }
-    function login() { const p = document.getElementById('pass').value; if (p === 'espacoviva') { localStorage.setItem('espacoviva_auth', p); document.getElementById('auth').style.display = 'none'; refresh(); } else { alert('Senha incorreta!'); document.getElementById('pass').value = ''; } }
-    function logout() { localStorage.removeItem('espacoviva_auth'); location.reload(); }
-    if (localStorage.getItem('espacoviva_auth') === 'espacoviva') { document.getElementById('auth').style.display = 'none'; }
-    function toggleConfig() { document.getElementById('cfg').style.display = document.getElementById('cfg').style.display === 'block' ? 'none' : 'block'; }
-    function saveConfig() { let url = document.getElementById('api_url').value.trim(); if (url && !url.startsWith('http')) url = 'https://' + url; localStorage.setItem('music_server_url', url); API_BASE = url; toggleConfig(); refresh(); }
-    async function refresh() {
-      const auth = localStorage.getItem('espacoviva_auth');
-      if (!auth) return;
-      try {
-        const url = API_BASE ? API_BASE + '/api/state?t=' + Date.now() + '&auth=' + auth : '/api/state?t=' + Date.now() + '&auth=' + auth;
-        const s = await fetch(url).then(r => r.json());
-        document.getElementById('npTitle').textContent = s.title || (s.status === 'playing' ? 'Tocando...' : 'Pausado');
-        document.getElementById('npStatus').textContent = s.status === 'playing' ? '● AO VIVO' : 'Pausado';
-        document.getElementById('playBtn').textContent = s.status === 'playing' ? '⏸' : '▶';
-        const qList = document.getElementById('qList');
-        if (s.queue.length > 0) {
-          document.getElementById('qCard').style.display = 'block';
-          qList.innerHTML = s.queue.slice(0, 50).map((it, i) => `
+  <div id="logview">Sincronizando com Mac Mini...</div>
+</div>
+
+<div class="player-bar">
+  <div class="now-playing"><div class="np-title" id="npTitle">---</div><div class="np-status" id="npStatus">Desconectado</div></div>
+  <div class="player-ctrls">
+    <button class="btn" style="background:none" onclick="api('/prev').then(refresh)">⏮</button>
+    <button class="p-btn-main" id="playBtn" onclick="api('/toggle').then(refresh)">▶</button>
+    <button class="btn" style="background:none" onclick="api('/next').then(refresh)">⏭</button>
+  </div>
+  <div class="volume-ctrl">
+    <span>🔈</span><input type="range" class="volume-slider" id="vol" min="0" max="100" oninput="setVol(this.value)"><span>🔊</span>
+  </div>
+</div>
+
+<script>
+let lastStatus = "";
+function addLog(m) { const l = document.getElementById('logview'); l.innerHTML = "["+new Date().toLocaleTimeString()+"] "+m+"<br>"+l.innerHTML.split("<br>").slice(0,5).join("<br>"); }
+
+async function api(p, data={}) {
+  const auth = localStorage.getItem('espacoviva_auth');
+  if(!auth) return;
+  try {
+    const r = await fetch('/api'+p, { method:'POST', cache:'no-cache', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json', 'X-Api-Key': auth } });
+    if(r.status === 401) { logout(); return; }
+    return r.json();
+  } catch(e) { addLog("Erro API: "+p); }
+}
+
+function login() {
+  const p = document.getElementById('pass').value;
+  if(p === 'espacoviva') { localStorage.setItem('espacoviva_auth', p); document.getElementById('auth').style.display = 'none'; refresh(); }
+  else { alert('Senha incorreta!'); }
+}
+function logout() { localStorage.removeItem('espacoviva_auth'); location.reload(); }
+if(localStorage.getItem('espacoviva_auth') === 'espacoviva') document.getElementById('auth').style.display = 'none';
+
+async function refresh() {
+  const auth = localStorage.getItem('espacoviva_auth');
+  if(!auth) return;
+  try {
+    const s = await fetch('/api/state?t=' + Date.now() + '&auth=' + auth).then(r=>r.json());
+    document.getElementById('npTitle').textContent = s.title || (s.status === 'playing' ? 'Tocando...' : 'Pausado');
+    document.getElementById('npStatus').textContent = s.status === 'playing' ? '● AO VIVO' : 'SISTEMA EM IDLE';
+    document.getElementById('playBtn').textContent = s.status === 'playing' ? '⏸' : '▶';
+    
+    if(s.queue.length > 0) {
+        document.getElementById('qCard').style.display = 'block';
+        document.getElementById('qList').innerHTML = s.queue.slice(0, 30).map((it, i) => `
             <div class="q-item ${s.current_idx == i ? 'playing' : ''}" onclick="play(${i})">
-                <div class="q-idx">${i + 1}</div>
-                <div class="q-info">
-                    <div class="q-title">${it.title}</div>
-                    <div class="q-meta">${it.duration || '00:00'}</div>
-                </div>
+                <div class="q-idx">${i+1}</div>
+                <div class="q-title">${it.title}</div>
             </div>`).join('');
-        } else { document.getElementById('qCard').style.display = 'none'; }
-        document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
-        document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Offline';
-        document.getElementById('cpuText').textContent = (typeof s.sys.cpu === 'string' ? s.sys.cpu : s.sys.cpu + '%');
-        document.getElementById('statusSource').textContent = s.sys.source || "YT Music";
-      } catch (e) { document.getElementById('npStatus').textContent = "Offline ⚠️"; }
-    }
-    async function add(mode) { const v = document.getElementById('inp').value; if (!v) return; await api('/add', { q: v, mode: mode }); document.getElementById('inp').value = ''; setTimeout(refresh, 2000); }
-    function quick(q) { document.getElementById('inp').value = q; add('playlist'); }
-    function play(idx) { api('/play', { i: idx }).then(refresh); }
-    function setVol(v) { api('/volume', { v: v }); }
-    function confirmClear(btn) { if (btn.dataset.conf === "1") { api('/clear').then(() => { btn.dataset.conf = "0"; btn.textContent = "🗑️ Limpar"; refresh(); }); } else { btn.dataset.conf = "1"; btn.textContent = "CONFIRMAR?"; setTimeout(() => { btn.dataset.conf = "0"; btn.textContent = "🗑️ Limpar"; }, 3000); } }
-    setInterval(refresh, 5000); refresh();
-  </script>
+    } else { document.getElementById('qCard').style.display = 'none'; }
+
+    document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
+    document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Offline';
+    document.getElementById('cpuText').textContent = s.sys.cpu + (String(s.sys.cpu).includes('%') ? '' : '%');
+    document.getElementById('statusSource').textContent = s.sys.source || "ONLINE";
+    document.getElementById('infBadge').textContent = s.infinite_mode ? "AUTO-REFILL ON" : "AUTO-REFILL OFF";
+    document.getElementById('infBadge').style.color = s.infinite_mode ? "var(--success)" : "var(--text-dim)";
+    
+    if(s.status != lastStatus) { addLog("Status alterado para: "+s.status); lastStatus = s.status; }
+  } catch(e) { document.getElementById('npStatus').textContent = "SEM RESPOSTA DO MAC MINI ⚠️"; }
+}
+
+async function add(mode) { 
+  const v = document.getElementById('inp').value; if(!v) return;
+  addLog("Buscando: "+v);
+  await api('/add', { q: v, mode: mode });
+  document.getElementById('inp').value = '';
+  setTimeout(refresh, 1500);
+}
+function quick(q) { document.getElementById('inp').value = q; add('playlist'); }
+function play(idx) { api('/play', {i: idx}).then(refresh); }
+function setVol(v) { api('/volume', {v: v}); }
+function confirmClear(btn) { api('/clear').then(() => { addLog("Fila limpa"); refresh(); }); }
+
+setInterval(refresh, 5000); refresh();
+</script>
 </body>
 </html>"""
 
