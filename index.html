@@ -72,26 +72,51 @@
     .status-pill {
       background: var(--glass);
       border: 1px solid var(--glass-border);
-      padding: 4px 8px;
-      border-radius: 6px;
+      padding: 4px 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
     }
 
     .dot {
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
+      position: relative;
     }
 
     .dot-online {
       background: var(--success);
-      box-shadow: 0 0 8px var(--success);
+      box-shadow: 0 0 12px var(--success);
+    }
+
+    .dot-online::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: inherit;
+      border-radius: 50%;
+      animation: ping 1.5s infinite;
     }
 
     .dot-offline {
       background: var(--danger);
+      box-shadow: 0 0 12px var(--danger);
+    }
+
+    @keyframes ping {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
     }
 
     .card {
@@ -462,10 +487,11 @@
         <h1>Academia Espaço viva Infinite</h1>
       </div>
       <div class="sys-info">
-        <div class="status-pill">
+        <div class="status-pill" title="Health Check">
           <div class="dot" id="dotNet"></div> <span id="netText">---</span>
         </div>
-        <div class="status-pill">CPU <span id="cpuText">0%</span></div>
+        <div class="status-pill" title="CPU Load">CPU <span id="cpuText">0%</span></div>
+        <div class="status-pill" title="Active Source">🛡️ <span id="statusSource">YT Music</span></div>
       </div>
     </header>
 
@@ -603,7 +629,8 @@
         }
         document.getElementById('dotNet').className = 'dot ' + (s.sys.internet ? 'dot-online' : 'dot-offline');
         document.getElementById('netText').textContent = s.sys.internet ? 'Online' : 'Offline';
-        document.getElementById('cpuText').textContent = s.sys.cpu + '%';
+        document.getElementById('cpuText').textContent = (typeof s.sys.cpu === 'string' ? s.sys.cpu : s.sys.cpu + '%');
+        document.getElementById('statusSource').textContent = s.sys.source || "YT Music";
       } catch (e) {
         document.getElementById('npStatus').textContent = "Offline ⚠️";
       }
