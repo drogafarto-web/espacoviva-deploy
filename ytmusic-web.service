@@ -1,5 +1,5 @@
 [Unit]
-Description=YouTube Music Web Backend (espacoviva)
+Description=Espacoviva Infinite Music Server (v4.0 DevOps)
 After=network-online.target sound.target
 Wants=network-online.target
 
@@ -8,12 +8,29 @@ Type=simple
 User=bruno
 Group=bruno
 WorkingDirectory=/home/bruno/espacoviva-deploy
-ExecStart=/usr/bin/python3 /home/bruno/espacoviva-deploy/ytmusic-web.py
+Environment=HOME=/home/bruno
+Environment=PYTHONUNBUFFERED=1
+
+# Pre-execution cleanup
+ExecStartPre=-/usr/bin/killall -9 mpv
+ExecStartPre=-/usr/bin/rm -f /tmp/mpv-ytmusic
+
+# Main process
+ExecStart=/usr/bin/python3 /usr/local/bin/ytmusic-web.py
+
+# Failure handling & Resilience
 Restart=always
-RestartSec=10
+RestartSec=5s
+StartLimitIntervalSec=0
+
+# Resource priority (Industrial grade)
+Nice=-10
+OOMScoreAdjust=-1000
+LimitNOFILE=65536
+
+# Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ytmusic-web
 
 [Install]
 WantedBy=multi-user.target

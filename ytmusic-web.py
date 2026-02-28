@@ -18,7 +18,6 @@ MPV_SOCKET = "/tmp/mpv-ytmusic"
 QUEUE_FILE = os.path.expanduser("~/.ytmusic_queue.json")
 PORT = 8080
 
-# State
 state = {
     "queue": [],      
     "current_idx": -1,
@@ -28,11 +27,14 @@ state = {
     "title": "",
     "volume": 80,
     "infinite_mode": True,
-    "last_query": "gym workout mix"
+    "last_query": "gym workout mix",
+    "history": [] # IDs das últimas músicas para evitar repetição
 }
 mpv_proc = None
 lock = threading.Lock()
 refill_lock = False
+last_check_pos = 0
+last_check_time = 0
 
 def save_state():
     try:
@@ -111,9 +113,14 @@ def refill_queue():
         items = get_yt_info(state["last_query"])
         if items:
             with lock:
-                state["queue"].extend(items)
+                # Filtrar duplicatas recentes (últimas 50 músicas)
+                history_ids = set(state.get("history", [])[-50:])
+                new_items = [it for it in items if it["id"] not in history_ids]
+                if not new_items: new_items = items[:10] # Fallback se tudo for repetido
+                
+                state["queue"].extend(new_items)
                 save_state()
-                log(f"THREADS - Refil OK: +{len(items)}")
+                log(f"THREADS - Refil OK: +{len(new_items)} (Orig: {len(items)})")
     finally:
         refill_lock = False
 
@@ -169,6 +176,11 @@ def play_item(idx):
             log(f"ERRO play_item loadfile: {res['error']}")
         else:
             state["status"] = "playing"; state["title"] = item["title"]
+            # Adicionar ao histórico
+            if "history" not in state: state["history"] = []
+            if item["id"] not in state["history"]:
+                state["history"].append(item["id"])
+                if len(state["history"]) > 200: state["history"].pop(0)
             log(f"AÇAO - play_item TOCANDO OK")
 
 def stop_playback():
@@ -182,32 +194,47 @@ def stop_playback():
     state["status"] = "stopped"; state["title"] = ""; state["current_idx"] = -1
 
 def monitor_thread():
-    global refill_lock
-    log("Monitor thread iniciada.")
+    global refill_lock, last_check_pos, last_check_time
+    log("Monitor thread (Watchdog) iniciada.")
     while True:
         try:
-            # 1. Manter reprodução
+            # 1. Manter reprodução (Idle detection)
             if state["status"] == "playing":
                 idle = mpv_get_property("idle-active")
                 if idle is True:
-                    log("Monitor detectou idle (musica acabou). Seguindo...")
+                    log("Watchdog: idle detectado. Seguindo fila...")
                     with lock:
                         n = state["current_idx"] + 1
                         if n >= len(state["queue"]):
                             if state["loop"]: n = 0
                             else: stop_playback(); n = -1
                         if n != -1: play_item(n)
-            
+                
+                # 1.1 Stall Watchdog (se a música travar ou o socket não responder)
+                curr_pos = mpv_get_property("time-pos")
+                curr_time = time.time()
+                if curr_pos is not None:
+                    if curr_pos == last_check_pos and (curr_time - last_check_time) > 45:
+                        # Se msm posição por 45s e o pause não estiver ativo
+                        pause = mpv_get_property("pause")
+                        if pause is False:
+                            log("CRÍTICO: Stall detectado (musica parada mas 'playing'). Reiniciando player...")
+                            play_item(state["current_idx"])
+                    
+                    if curr_pos != last_check_pos:
+                        last_check_pos = curr_pos
+                        last_check_time = curr_time
+
             # 2. Refil Infinito
             if state["infinite_mode"] and not refill_lock:
                 remaining = len(state["queue"]) - (state["current_idx"] + 1)
                 if remaining < 5 and state["queue"]:
-                    log(f"Monitor detectou fila baixa ({remaining}). Refill...")
+                    log(f"Watchdog: fila baixa ({remaining}). Refill...")
                     refill_lock = True
                     threading.Thread(target=refill_queue, daemon=True).start()
                     
         except Exception as e: log(f"AVISO monitor_thread: {e}")
-        time.sleep(3)
+        time.sleep(5)
 
 def get_sys_info():
     info = {"cpu": 0, "ram": 0, "internet": False, "source": "YT Music"}
