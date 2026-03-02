@@ -476,8 +476,7 @@
   <div class="config-btn" onclick="toggleConfig()">⚙️</div>
   <div class="config-panel" id="cfg">
     <h3>Configuração do Servidor</h3>
-    <input type="text" id="api_url" placeholder="URL do Tunnel (ex: academia.trycloudflare.com)"
-      style="margin: 10px 0; width: 100%;">
+    <input type="text" id="api_url" placeholder="URL: api.meuespacoviva.com.br" style="margin: 10px 0; width: 100%;">
     <button class="btn btn-primary" style="width: 100%;" onclick="saveConfig()">Salvar</button>
   </div>
 
@@ -505,6 +504,7 @@
       </div>
       <div class="action-btns">
         <button class="btn btn-primary" onclick="add('playlist')">📂 Playlists</button>
+        <button class="btn btn-secondary" onclick="showTab('lib')">📚 Biblioteca</button>
         <button class="btn btn-secondary" id="clearBtnMain" onclick="confirmClear(this)">🗑️ Limpar</button>
       </div>
       <div class="chips-grid">
@@ -516,6 +516,21 @@
         <div class="chip" onclick="quick('🥊 Fight Training')">🥊 Fight Training</div>
         <div class="chip" onclick="quick('rock nacional brasileiro anos 80 90')">🎸 Rock BR</div>
         <div class="chip" onclick="quick('classic rock hits 70s 80s 90s')">🔥 Classic Rock</div>
+      </div>
+    </div>
+
+    <!-- ABA BIBLIOTECA -->
+    <div id="tab-lib" class="card" style="display:none">
+      <div class="card-title">Biblioteca Local <button class="btn btn-secondary"
+          style="padding: 4px 10px; font-size: 9px;" onclick="loadLibrary()">ATUALIZAR</button></div>
+      <div class="search-box">
+        <input type="text" id="lib-url" placeholder="Nova URL YouTube...">
+        <button class="search-btn" onclick="downloadToLib()">⬇️</button>
+      </div>
+      <div id="download-status" style="margin-bottom:15px; font-size:11px; color:var(--accent); text-align:center">
+      </div>
+      <div id="library-list" class="queue-list">
+        <!-- Arquivos via API -->
       </div>
     </div>
 
@@ -547,7 +562,7 @@
 
   <script>
     let lastState = null;
-    let API_BASE = localStorage.getItem('music_server_url') || "";
+    let API_BASE = localStorage.getItem('music_server_url') || "https://api.meuespacoviva.com.br";
 
     function login() {
       const p = document.getElementById('pass').value;
@@ -648,19 +663,55 @@
     function play(idx) { api('/play', { i: idx }).then(refresh); }
     function setVol(v) { api('/volume', { v: v }); }
 
-    function confirmClear(btn) {
-      if (btn.dataset.conf === "1") {
-        api('/clear').then(() => {
-          btn.dataset.conf = "0";
-          btn.textContent = btn.id === "clearBtnQueue" ? "LIMPAR" : "🗑️ Limpar";
-          refresh();
-        });
+    async function downloadToLib() {
+      const url = document.getElementById('lib-url').value;
+      if (!url) return;
+      document.getElementById('download-status').innerText = "Solicitando download...";
+      const res = await api('/add_music', { url });
+      if (res && res.ok) {
+        document.getElementById('download-status').innerText = "Baixando em background...";
+        document.getElementById('lib-url').value = "";
+        setTimeout(loadLibrary, 5000);
       } else {
-        btn.dataset.conf = "1";
-        btn.textContent = "CONFIRMAR?";
-        setTimeout(() => { btn.dataset.conf = "0"; btn.textContent = btn.id === "clearBtnQueue" ? "LIMPAR" : "🗑️ Limpar"; }, 3000);
+        document.getElementById('download-status').innerText = "Erro: " + (res?.error || "Falha na conexão");
       }
     }
+
+    async function loadLibrary() {
+      const data = await api('/library', {});
+      const container = document.getElementById('library-list');
+      if (!data || !data.files) return;
+      container.innerHTML = data.files.map(f => `
+                <div class="q-item">
+                    <div class="q-info">
+                        <div class="q-title">${f}</div>
+                    </div>
+                    <button class="btn btn-secondary" style="padding:5px 10px; font-size:10px; background:rgba(255,0,0,0.2)" onclick="deleteFile('${f}')">DELETAR</button>
+                </div>
+            `).join('');
+    }
+
+    async function deleteFile(filename) {
+      if (!confirm("Deletar " + filename + "?")) return;
+      const res = await api('/library/delete', { filename });
+      if (res && res.ok) loadLibrary();
+    }
+
+    function showTab(id) {
+      document.getElementById('qCard').style.display = (id === 'queue') ? 'block' : 'none';
+      document.getElementById('tab-lib').style.display = (id === 'lib') ? 'block' : 'none';
+      if (id === 'lib') loadLibrary();
+    }
+
+    // Ajustar refresh para lidar com abas
+    const originalRefresh = refresh;
+    refresh = async function () {
+      await originalRefresh();
+      // Se a fila estiver vazia, não esconder o card se estivermos na biblioteca
+      if (document.getElementById('tab-lib').style.display === 'block') {
+        document.getElementById('qCard').style.display = 'none';
+      }
+    };
 
     setInterval(refresh, 5000);
     refresh();
